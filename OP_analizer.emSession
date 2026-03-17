@@ -54,13 +54,7 @@
  </TraceWindow>
  <Watch1>
   <Watches active="1" update="Never">
-   <Watchpoint expression="avrg_arr" name="avrg_arr" radix="10" linenumber="173" filename="main.c"/>
-   <Watchpoint expression="avrg_acc" name="avrg_acc" radix="-1" linenumber="180" filename="main.c"/>
-   <Watchpoint expression="rectif_arr" name="rectif_arr" radix="10" linenumber="181" filename="main.c"/>
-   <Watchpoint expression="rectif_acc" name="rectif_acc" radix="-1" linenumber="185" filename="main.c"/>
-   <Watchpoint expression="samp_i" name="samp_i" radix="10" linenumber="186" filename="main.c"/>
-   <Watchpoint expression="arr_idx" name="arr_idx" radix="10" linenumber="173" filename="main.c"/>
-   <Watchpoint expression="samp_n_arr" name="samp_n_arr" radix="10" linenumber="56" filename="main.c"/>
+   <Watchpoint expression="I2C2_struct" name="I2C2_struct" radix="-1" linenumber="35" filename="I2Celem.c"/>
   </Watches>
  </Watch1>
  <Watch2>
@@ -73,11 +67,12 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="24" y="107" useTextEdit="1" folds0="45,49,62,146" path="main.c" left="0" selected="1" top="54" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="20" useTextEdit="1" path="main.h" left="0" top="7" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="2" useTextEdit="1" path="uart.c" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="21" y="12" useTextEdit="1" path="uart.h" left="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="12" y="666" useTextEdit="1" path="stm32f103xb.h" left="0" top="666" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="245" useTextEdit="1" folds0="106" path="I2Celem.c" left="0" top="113" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="22" useTextEdit="1" path="systick.c" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="28" y="7" useTextEdit="1" path="I2Celem.h" left="0" top="0" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="72" useTextEdit="1" folds0="129" path="main.c" left="0" selected="1" top="46" codecName="Default"/>
  </Files>
  <EMStudioWindow activeProject="OP_analizer" fileDialogDefaultFilter="*.c" autoConnectTarget="GDB Server" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="/home/vpq/Work/SeggerProjects/OP_analizer" debugSearchPath="" autoConnectCapabilities="1343"/>
 </session>

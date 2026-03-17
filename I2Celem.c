@@ -212,6 +212,9 @@ void I2C2_ER_IRQHandler(void){
 void I2C1_EV_IRQHandler(void){
   I2C_EV_IRQHandlerCommon(&I2C1_struct);
 }
+void I2C2_EV_IRQHandler(void){
+  I2C_EV_IRQHandlerCommon(&I2C2_struct);
+}
 int I2C_Transfer(int bus_num,uint8_t dev_addr, uint8_t addr[MAX_INTERNAL_ADDR_LENGTH], uint8_t addr_length,uint8_t* data, uint16_t data_length, tI2Cdir_en dir){
     tI2C_transfer_st* i2c;
     if(bus_num<MIN_BUS_NUM || bus_num>MAX_BUS_NUM )return -1;

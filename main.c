@@ -6,11 +6,10 @@
 #include "uart.h"
 
 void ADC_SampleTimerInit(void);
-int16_t adc_data;//!!!
 //****************************************************************************************************************
 void InitPeripheryPower(void){
     RCC->AHBENR |= 0 | RCC_AHBENR_DMA1EN;
-    RCC->APB1ENR |=0 | RCC_APB1ENR_I2C1EN | RCC_APB1ENR_TIM4EN | RCC_APB1ENR_USART2EN;
+    RCC->APB1ENR |=0 | RCC_APB1ENR_I2C1EN | RCC_APB1ENR_I2C2EN | RCC_APB1ENR_TIM4EN | RCC_APB1ENR_USART2EN;
     RCC->APB2ENR |=0 | RCC_APB2ENR_AFIOEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN;
 }
 //****************************************************************************************************************
@@ -33,8 +32,8 @@ void GPIO_Init(void) {
     /**< I2C_2*/
     /**< PB10   - I2C1 SCL */
     /**< PB11   - I2C1 SDA */
-//    ConfigGPIO_HighPin(GPIOB,10,1,3);
-//    ConfigGPIO_HighPin(GPIOB,11,1,3);
+    ConfigGPIO_HighPin(GPIOB,10,1,3);
+    ConfigGPIO_HighPin(GPIOB,11,1,3);
     /**< USART2*/
     /**< PA2   - USART2 Tx */
     /**< PA3   - USART2 Rx */
@@ -48,7 +47,7 @@ int16_t bswap16(uint16_t x) {
 }
 //****************************************************************************************************************
 typedef struct {
-    int32_t avrg_arr[32];
+    int32_t avrg_arr[32];//here and in all similar below 32 array is for debug test only. In working it will not required!!!
     int32_t _avrg_acc;
     int32_t rectif_arr[32];
     int32_t _rectif_acc;
@@ -60,43 +59,15 @@ typedef struct {
     uint8_t sub_addr;
     }adc_data_st;
 
-adc_data_st adc_data_arr[4]={
-    {
-    ._avrg_acc=0,
-    ._rectif_acc=0,
-    ._samp_i=0,
-    ._arr_idx=0,
-    ._adc_skipped=0,
-    ._adc_p=0,
-    .sub_addr=2,
-    },
-    {
-    ._avrg_acc=0,
-    ._rectif_acc=0,
-    ._samp_i=0,
-    ._arr_idx=0,
-    ._adc_skipped=0,
-    ._adc_p=0,
-    .sub_addr=3,
-    },
-    {
-    ._avrg_acc=0,
-    ._rectif_acc=0,
-    ._samp_i=0,
-    ._arr_idx=0,
-    ._adc_skipped=0,
-    ._adc_p=0,
-    .sub_addr=0,
-    },
-    {
-    ._avrg_acc=0,
-    ._rectif_acc=0,
-    ._samp_i=0,
-    ._arr_idx=0,
-    ._adc_skipped=0,
-    ._adc_p=0,
-    .sub_addr=1,
-    },
+adc_data_st adc_data_arr[8]={
+    {.sub_addr=2,},
+    {.sub_addr=3,},
+    {.sub_addr=0,},
+    {.sub_addr=1,},
+    {.sub_addr=2,},
+    {.sub_addr=3,},
+    {.sub_addr=0,},
+    {.sub_addr=1,},
 };
 
 int main(void) {
@@ -105,16 +76,27 @@ int main(void) {
     SysTickInit();
     GPIO_Init();
     I2C_Init(I2C1,I2C_BUS_FREQ_KHZ);
+    I2C_Init(I2C2,I2C_BUS_FREQ_KHZ);
     uint32_t sec_tick=0;
     uint32_t adc_tick=0;
     uint16_t cfg_dc=bswap16(ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_MUX_A2A3 | ADS1115_CFG_COMP_QUE_DIS);
     uint16_t cfg_ac=bswap16(ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_MUX_A0A1 | ADS1115_CFG_COMP_QUE_DIS);
+    for(int i=0;i<8;i++){
+        adc_data_arr[i]._avrg_acc=adc_data_arr[i]._rectif_acc=0;
+        adc_data_arr[i]._samp_i=adc_data_arr[i]._arr_idx=adc_data_arr[i]._adc_skipped=adc_data_arr[i]._adc_p=0;
+        }
+    //while(1){
+    //    ADS115_ConfigWr(2,adc_data_arr[4].sub_addr,&cfg_ac);
+    //    while(!IsSysTickTimerExp(&sec_tick,250));
+    //}
     for(int i=0;i<4;i++){
         uint16_t cfg= i==0 ? cfg_dc : cfg_ac;
         ADS115_ConfigWr(1,adc_data_arr[i].sub_addr,&cfg);
-        while(I2C_IsBusy(1));
+        ADS115_ConfigWr(2,adc_data_arr[i+4].sub_addr,&cfg_ac);
+        while(I2C_IsBusy(1) || I2C_IsBusy(2));
         ADS115_PrepRdConv(1,adc_data_arr[i].sub_addr);
-        while(I2C_IsBusy(1));
+        ADS115_PrepRdConv(2,adc_data_arr[i+4].sub_addr);
+        while(I2C_IsBusy(1) || I2C_IsBusy(2));
     }
     ADC_SampleTimerInit();
     USART2init();
@@ -133,11 +115,12 @@ int main(void) {
             //}      
             //printf("\n");
             uint32_t len=0;
-            for(int i=0;i<4;i++){
+            for(int i=0;i<8;i++){
                 len+=sprintf(&uart_buf[len],"adc%d=%d\t",i,adc_data_arr[i].rectif_arr[0]);
             }      
-            len+=sprintf(&uart_buf[len],"\n");
+            len+=sprintf(&uart_buf[len],"\r\n");
             USART2TransmitBuf(uart_buf,len);
+            //printf("%s",uart_buf);
         }
    }
 }
@@ -178,35 +161,40 @@ void ADC_SampleTimerInit(void){
 #define ADC_WIN_STRACH_MAX (ADC_SPS_RATE/50*13/10/2)
 //window is 100ms
 #define ADC_AVARAGING_WINDOW (ADC_SPS_RATE/9)
+int16_t adc_samp[2];
 void TIM4_IRQHandler(void){
     uint16_t status=TIM4->SR;
     static uint8_t adc_ch_curr=0;
+    uint8_t ch_curr_next;
     adc_data_st *adc_st_ptr;
-    adc_st_ptr=&adc_data_arr[adc_ch_curr];
+    ch_curr_next= (adc_ch_curr==3) ? 0 : (adc_ch_curr+1);
     if(status & TIM_SR_UIF){
-        int16_t adc=bswap16(adc_data);
-        if(adc==adc_st_ptr->_adc_p && !(adc_st_ptr->_adc_skipped)){//probably 
-            adc_st_ptr->_adc_skipped=1;//only one missing in row allowed. Next iteration will be processed any way 
-        }else{
-            adc_st_ptr->_adc_skipped=0;
-            //if(++samp_i>=(840)){
-            if(++adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW)){
-                if(adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW+ADC_AVARAGING_WINDOW) || zerro_cross(adc,adc_st_ptr->_adc_p)){
-                    adc_st_ptr->samp_n_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_samp_i;
-                    adc_st_ptr->avrg_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_avrg_acc;
-                    adc_st_ptr->rectif_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_rectif_acc/adc_st_ptr->_samp_i;
-                    adc_st_ptr->_avrg_acc=0;
-                    adc_st_ptr->_rectif_acc=0;
-                    adc_st_ptr->_samp_i=0;
-                    if(++adc_st_ptr->_arr_idx>=32)adc_st_ptr->_arr_idx=0;
+        for(int i=0;i<2;i++){
+            adc_st_ptr=&adc_data_arr[adc_ch_curr+i*4];
+            int16_t adc=bswap16(adc_samp[i]);
+            if(adc==adc_st_ptr->_adc_p && !(adc_st_ptr->_adc_skipped)){//probably 
+                adc_st_ptr->_adc_skipped=1;//only one missing in row allowed. Next iteration will be processed any way 
+            }else{
+                adc_st_ptr->_adc_skipped=0;
+                //if(++samp_i>=(840)){
+                if(++adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW)){
+                    if(adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW+ADC_AVARAGING_WINDOW) || zerro_cross(adc,adc_st_ptr->_adc_p)){
+                        adc_st_ptr->samp_n_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_samp_i;
+                        adc_st_ptr->avrg_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_avrg_acc;
+                        adc_st_ptr->rectif_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_rectif_acc/adc_st_ptr->_samp_i;
+                        adc_st_ptr->_avrg_acc=0;
+                        adc_st_ptr->_rectif_acc=0;
+                        adc_st_ptr->_samp_i=0;
+                        if(++adc_st_ptr->_arr_idx>=32)adc_st_ptr->_arr_idx=0;
+                    }
                 }
+                adc_st_ptr->_avrg_acc+=adc;
+                adc_st_ptr->_rectif_acc+=abs(adc);
+                adc_st_ptr->_adc_p=adc;
             }
-            adc_st_ptr->_avrg_acc+=adc;
-            adc_st_ptr->_rectif_acc+=abs(adc);
-            adc_st_ptr->_adc_p=adc;
+            ADS1115_RdConv(1+i,adc_data_arr[ch_curr_next].sub_addr,&adc_samp[i]);
         }
-        if(++adc_ch_curr>3)adc_ch_curr=0;
-        ADS1115_RdConv(1,adc_data_arr[adc_ch_curr].sub_addr,&adc_data);
+        adc_ch_curr=ch_curr_next;
     }//END if(status & TIM_SR_UIF)
     TIM4->SR=~status;
 }

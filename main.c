@@ -46,29 +46,50 @@ int16_t bswap16(uint16_t x) {
     return (x >> 8) | (x << 8);
 }
 //****************************************************************************************************************
+#define ADC_PIN_DC_SIDE ADS1115_CFG_MUX_A2A3
+#define ADC_PIN_AC_SIDE ADS1115_CFG_MUX_A0A1
 typedef struct {
-    int32_t avrg_arr[32];//here and in all similar below 32 array is for debug test only. In working it will not required!!!
+    int32_t avrg[2];//saved average value from current average accumulator
     int32_t _avrg_acc;
-    int32_t rectif_arr[32];
+    int32_t rectif[2];//saved rectified value from current rectified accumulator
     int32_t _rectif_acc;
-    uint16_t samp_n_arr[32];
+    uint16_t samp_n[2]; //real collected samples when values shifted to avrg/rectif
     int16_t _samp_i;
-    int16_t _arr_idx;
-    int16_t _adc_skipped;
+    int16_t _adc_skipped;//internal. Introduced because I don't connect 'ADC Ready' signal and must to pole adc result faster than it can be and skip data which is not change 2 times in row
     int16_t _adc_p;
-    uint8_t sub_addr;
+    uint8_t sub_addr;//address in I2C bus
+    uint16_t pin_select;//ADS1115_CFG_MUX_A2A3 -> DC side, ADS1115_CFG_MUX_A0A1 ->AC side  
     }adc_data_st;
 
 adc_data_st adc_data_arr[8]={
-    {.sub_addr=2,},
-    {.sub_addr=3,},
-    {.sub_addr=0,},
-    {.sub_addr=1,},
-    {.sub_addr=2,},
-    {.sub_addr=3,},
-    {.sub_addr=0,},
-    {.sub_addr=1,},
+    {.sub_addr=2,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=3,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=0,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=1,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=2,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=3,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=0,.pin_select=ADC_PIN_DC_SIDE,},
+    {.sub_addr=1,.pin_select=ADC_PIN_DC_SIDE,},
 };
+static int adc_data_ready_msk=0;//bit 1 responsible for avrg[0](and others), bit 2 - for avrg[1] (and others coupled values)
+void ADCInit(void){
+    for(int i=0;i<8;i++){
+        adc_data_arr[i]._avrg_acc=adc_data_arr[i]._rectif_acc=0;
+        adc_data_arr[i]._samp_i=adc_data_arr[i]._adc_skipped=adc_data_arr[i]._adc_p=0;
+        }
+    uint16_t cfg;
+    for(int i=0;i<4;i++){
+        cfg=bswap16(adc_data_arr[i].pin_select | ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_COMP_QUE_DIS);
+        ADS115_ConfigWr(1,adc_data_arr[i].sub_addr,&cfg);
+        cfg=bswap16(adc_data_arr[i+4].pin_select | ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_COMP_QUE_DIS);
+        ADS115_ConfigWr(2,adc_data_arr[i+4].sub_addr,&cfg);
+        while(I2C_IsBusy(1) || I2C_IsBusy(2));
+        ADS115_PrepRdConv(1,adc_data_arr[i].sub_addr);
+        ADS115_PrepRdConv(2,adc_data_arr[i+4].sub_addr);
+        while(I2C_IsBusy(1) || I2C_IsBusy(2));
+    }
+    ADC_SampleTimerInit();
+}
 
 int main(void) {
     char uart_buf[256];
@@ -79,48 +100,32 @@ int main(void) {
     I2C_Init(I2C2,I2C_BUS_FREQ_KHZ);
     uint32_t sec_tick=0;
     uint32_t adc_tick=0;
-    uint16_t cfg_dc=bswap16(ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_MUX_A2A3 | ADS1115_CFG_COMP_QUE_DIS);
-    uint16_t cfg_ac=bswap16(ADS1115_CFG_DR_860SPS | ADS1115_CFG_MODE_CONT | ADS1115_CFG_PGA_2_048V | ADS1115_CFG_MUX_A0A1 | ADS1115_CFG_COMP_QUE_DIS);
-    for(int i=0;i<8;i++){
-        adc_data_arr[i]._avrg_acc=adc_data_arr[i]._rectif_acc=0;
-        adc_data_arr[i]._samp_i=adc_data_arr[i]._arr_idx=adc_data_arr[i]._adc_skipped=adc_data_arr[i]._adc_p=0;
-        }
-    //while(1){
-    //    ADS115_ConfigWr(2,adc_data_arr[4].sub_addr,&cfg_ac);
-    //    while(!IsSysTickTimerExp(&sec_tick,250));
-    //}
-    for(int i=0;i<4;i++){
-        uint16_t cfg= i==0 ? cfg_dc : cfg_ac;
-        ADS115_ConfigWr(1,adc_data_arr[i].sub_addr,&cfg);
-        ADS115_ConfigWr(2,adc_data_arr[i+4].sub_addr,&cfg_ac);
-        while(I2C_IsBusy(1) || I2C_IsBusy(2));
-        ADS115_PrepRdConv(1,adc_data_arr[i].sub_addr);
-        ADS115_PrepRdConv(2,adc_data_arr[i+4].sub_addr);
-        while(I2C_IsBusy(1) || I2C_IsBusy(2));
-    }
-    ADC_SampleTimerInit();
+    ADCInit();
     USART2init();
     while(1) {
         if(IsSysTickTimerExp(&sec_tick,250)){
-            if(!adc_data_arr[0]._arr_idx || 1){
-                GPIOB->ODR ^= 1 << 2;
-            }
+            GPIOB->ODR ^= 1 << 2;
         }
-        if(IsSysTickTimerExp(&adc_tick,1000)){
-            //int adc=(long)bswap16(adc_data)*2048l*12/32768;//Vref=2.048V,(R1+R2)/R2=12,Nadc=16bit(2s complement)
-            //int adc=bswap16(adc_data);//*2048l*12/32768;
-            //printf("adc=0x%x\n",adc);
-            //for(int i=0;i<4;i++){
-            //    printf("adc%d=%d\t",i,adc_data_arr[i].rectif_arr[0]);
-            //}      
-            //printf("\n");
+        if(adc_data_ready_msk){
+            int idx=adc_data_ready_msk==1 ? 0 : 1;
+            adc_data_ready_msk^=(0x01<<idx);
             uint32_t len=0;
+            float out_data;
+            len+=sprintf(&uart_buf[len],"$AD");
             for(int i=0;i<8;i++){
-                len+=sprintf(&uart_buf[len],"adc%d=%d\t",i,adc_data_arr[i].rectif_arr[0]);
-            }      
+                out_data=(float)adc_data_arr[i].rectif[idx]*2.048*12/(adc_data_arr[i].samp_n[idx]*32768);//Vref=2.048V,(R1+R2)/R2=12,Nadc=16bit(2s complement)
+                len+=sprintf(&uart_buf[len],",%.1f",out_data);
+            }
+            uint8_t checksum=0;
+            for(int i=1;i<len;i++)checksum^=uart_buf[i];
+            uart_buf[len++]='*';
+            uint8_t c=checksum>>4;
+            uart_buf[len++]=c>9? (c+'A'-9) : (c+'0');
+            c=checksum & 0x0f;
+            uart_buf[len++]=c>9? (c+'A'-9) : (c+'0');    
             len+=sprintf(&uart_buf[len],"\r\n");
             USART2TransmitBuf(uart_buf,len);
-            //printf("%s",uart_buf);
+            printf("%s",uart_buf);
         }
    }
 }
@@ -164,13 +169,17 @@ void ADC_SampleTimerInit(void){
 int16_t adc_samp[2];
 void TIM4_IRQHandler(void){
     uint16_t status=TIM4->SR;
-    static uint8_t adc_ch_curr=0;
+    static uint32_t adc_ch_curr=0;
+    static uint32_t ch_ready_msk=0;
+    static uint32_t buf_idx=0;
     uint8_t ch_curr_next;
     adc_data_st *adc_st_ptr;
     ch_curr_next= (adc_ch_curr==3) ? 0 : (adc_ch_curr+1);
     if(status & TIM_SR_UIF){
+        uint32_t arr_i;
         for(int i=0;i<2;i++){
-            adc_st_ptr=&adc_data_arr[adc_ch_curr+i*4];
+            arr_i=adc_ch_curr+i*4;
+            adc_st_ptr=&adc_data_arr[arr_i];
             int16_t adc=bswap16(adc_samp[i]);
             if(adc==adc_st_ptr->_adc_p && !(adc_st_ptr->_adc_skipped)){//probably 
                 adc_st_ptr->_adc_skipped=1;//only one missing in row allowed. Next iteration will be processed any way 
@@ -178,14 +187,19 @@ void TIM4_IRQHandler(void){
                 adc_st_ptr->_adc_skipped=0;
                 //if(++samp_i>=(840)){
                 if(++adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW)){
-                    if(adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW+ADC_AVARAGING_WINDOW) || zerro_cross(adc,adc_st_ptr->_adc_p)){
-                        adc_st_ptr->samp_n_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_samp_i;
-                        adc_st_ptr->avrg_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_avrg_acc;
-                        adc_st_ptr->rectif_arr[adc_st_ptr->_arr_idx]=adc_st_ptr->_rectif_acc/adc_st_ptr->_samp_i;
+                    if(adc_st_ptr->pin_select==ADC_PIN_DC_SIDE || adc_st_ptr->_samp_i>=(ADC_AVARAGING_WINDOW+ADC_AVARAGING_WINDOW) || zerro_cross(adc,adc_st_ptr->_adc_p)){
+                        adc_st_ptr->samp_n[buf_idx]=adc_st_ptr->_samp_i;
+                        adc_st_ptr->avrg[buf_idx]=adc_st_ptr->_avrg_acc;
+                        adc_st_ptr->rectif[buf_idx]=adc_st_ptr->_rectif_acc;
                         adc_st_ptr->_avrg_acc=0;
                         adc_st_ptr->_rectif_acc=0;
                         adc_st_ptr->_samp_i=0;
-                        if(++adc_st_ptr->_arr_idx>=32)adc_st_ptr->_arr_idx=0;
+                        ch_ready_msk|=0x01<<arr_i;
+                        if(ch_ready_msk==0xff){//all 8 channel was completed 
+                            ch_ready_msk=0;
+                            adc_data_ready_msk|=0x01<<buf_idx;
+                            buf_idx^=0x01;
+                        }
                     }
                 }
                 adc_st_ptr->_avrg_acc+=adc;

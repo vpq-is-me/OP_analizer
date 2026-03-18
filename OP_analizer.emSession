@@ -67,12 +67,12 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="20" useTextEdit="1" path="main.h" left="0" top="7" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="20" useTextEdit="1" path="main.h" left="0" top="8" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="12" y="666" useTextEdit="1" path="stm32f103xb.h" left="0" top="666" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="245" useTextEdit="1" folds0="106" path="I2Celem.c" left="0" top="113" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="250" useTextEdit="1" folds0="106" path="I2Celem.c" left="0" top="128" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="22" useTextEdit="1" path="systick.c" left="0" top="0" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="28" y="7" useTextEdit="1" path="I2Celem.h" left="0" top="0" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="72" useTextEdit="1" folds0="129" path="main.c" left="0" selected="1" top="46" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="23" y="94" useTextEdit="1" folds0="22,134" path="main.c" left="0" selected="1" top="73" codecName="Default"/>
  </Files>
  <EMStudioWindow activeProject="OP_analizer" fileDialogDefaultFilter="*.c" autoConnectTarget="GDB Server" buildConfiguration="Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="/home/vpq/Work/SeggerProjects/OP_analizer" debugSearchPath="" autoConnectCapabilities="1343"/>
 </session>
